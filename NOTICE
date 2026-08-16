@@ -1,0 +1,38 @@
+Adaptive Native Standard
+
+This project contains or adapts MIT-licensed material and ideas from:
+
+- DeepSeek Harness Standard preset and runtime interfaces
+  Copyright (c) 2026 DeepSeek
+  https://github.com/deepseek-ai/deepseek-harness
+
+- dsh-anchored-standard two-phase bootstrap and compaction design
+  Copyright (c) 2026 xiaobright
+  https://github.com/xiaobright/dsh-anchored-standard
+
+- dsh-router-standard task classifier/personas and dsh-mode-boost routing ideas
+  Copyright (c) 2026 yjh051108
+  https://github.com/yjh051108/dsh-routing-suite
+
+- oh-we-need reasoning-style guidance
+  Copyright (c) 2026 oh-we-need contributors
+  https://github.com/scp3500/oh-we-need
+
+- opencode-routing-suite routing and fail-open adaptations
+  Copyright (c) 2026 cuddly-guacamole
+  https://github.com/cuddly-guacamole/opencode-routing-suite
+
+- dsh-gitbash-preset Git for Windows discovery and path-handling design
+  Copyright (c) 2025 icelily
+  https://github.com/liceses/dsh-gitbash-preset
+
+Exact reviewed revisions are recorded in upstream-lock.json. The combined MIT
+permission notice and retained copyright notices are included in LICENSE.
+
+myDshPresets and v4-flash-godmode-opencode-go were read as community design
+references only. No source from those repositories is included here, and this
+project makes no license claim for material not explicitly licensed by them.
+
+DeepSeek and DeepSeek Harness are names of their respective owner. This is an
+independent community project and is not affiliated with or endorsed by
+DeepSeek.

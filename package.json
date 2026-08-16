@@ -1,0 +1,17 @@
+{
+  "name": "dsh-adaptive-native-standard",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Windows-native Adaptive Standard preset for DeepSeek Harness",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "scripts": {
+    "test": "node --test",
+    "verify": "node scripts/verify-preset.mjs",
+    "verify:dsh": "node scripts/verify-dsh.mjs",
+    "check": "npm run verify && npm test"
+  }
+}

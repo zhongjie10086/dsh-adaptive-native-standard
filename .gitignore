@@ -1,0 +1,34 @@
+# Private evaluation corpus and outputs (kept locally, never published)
+.artifacts/
+.generated/
+eval/
+test/eval-tasks.test.mjs
+test/behavior-audit.test.mjs
+scripts/official-smoke.mjs
+scripts/official-posix-autonomy.mjs
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+*.jsonl
+
+# Generated output, logs, caches, and archives
+node_modules/
+coverage/
+*.log
+*.tmp
+*.bak
+*.tgz
+*.zip
+generation.json
+
+# Editor / OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
