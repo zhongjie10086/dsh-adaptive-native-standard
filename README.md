@@ -2,7 +2,7 @@
 
 面向 Windows 原生 DeepSeek Harness（DSH）的社区 Agent Preset。它以官方 Standard 的完整能力为底座，首请求仅锚定 Minimal persona，之后启用任务自适应路由、按需工具发现和紧凑的 Git Bash 执行器。
 
-当前版本：`0.1.0`
+当前版本：`0.2.0`
 
 > 本项目不是 DeepSeek 官方项目，也不受 DeepSeek 官方背书。
 
@@ -34,7 +34,49 @@
 
 DSH 更新可能改变 Cordis composition、工具 schema 或服务边界。升级 DSH 后请先运行兼容检查，再覆盖现有安装。
 
-## 安装
+## 安装（推荐：DSH bundle）
+
+从 DeepSeek Harness 源码 checkout 运行时：
+
+```powershell
+Set-Location C:\Dev\deepseek-harness
+pnpm dsh plugin --profile web add github:zhongjie10086/dsh-adaptive-native-standard
+pnpm dsh web
+```
+
+如果使用已经安装到 PATH 的 `dsh` CLI：
+
+```powershell
+dsh plugin --profile web add github:zhongjie10086/dsh-adaptive-native-standard
+dsh web
+```
+
+如果使用 DSH Desktop，请从托盘打开 **Open DSH Terminal**，安装到 Desktop 当前使用的 profile：
+
+```powershell
+dsh plugin --profile desktop add github:zhongjie10086/dsh-adaptive-native-standard
+```
+
+bundle 首次随 profile 启动时，会把随包 Agent Preset 部署到：
+
+```text
+%USERPROFILE%\.dsh\.agent-presets\adaptive-native-standard
+```
+
+已有手动安装与随包内容完全相同时，bundle 会安全接管并写入所有权标记；内容不同则保留原目录并给出警告，不会覆盖。bundle 管理的旧版本在更新前会移入 `%USERPROFILE%\.dsh\.preset-backups\`。
+
+重启后新建会话并选择 **Adaptive Native Standard**。不要在已有内容的会话中途切换 Preset。
+
+移除 profile 中的 bundle：
+
+```powershell
+Set-Location C:\Dev\deepseek-harness
+pnpm dsh plugin --profile web remove dsh-adaptive-native-standard
+```
+
+DSH 当前没有 package-owned preset-root 的卸载钩子，因此移除 bundle 不会自动删除已经部署的 preset；如需同时移除，请继续使用本仓库的 `scripts/uninstall.ps1`，或在 Agent Presets 设置中删除对应目录。
+
+## 手动安装（备用）
 
 下载或克隆本仓库后，在 PowerShell 中运行：
 

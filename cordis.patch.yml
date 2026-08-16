@@ -1,0 +1,5 @@
+# Installs the bundled Agent Preset into the shared DSH preset roster when
+# this bundle is mounted by a profile.
+- insert:
+    - id: adaptive-native-standard-installer
+      name: dsh-adaptive-native-standard
