@@ -1,9 +1,46 @@
 {
   "name": "dsh-adaptive-native-standard",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Windows-native Adaptive Standard preset for DeepSeek Harness",
   "type": "module",
+  "main": "./index.mjs",
+  "exports": {
+    ".": "./index.mjs",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.mjs",
+    "cordis.patch.yml",
+    "preset/",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zhongjie10086/dsh-adaptive-native-standard.git"
+  },
+  "homepage": "https://github.com/zhongjie10086/dsh-adaptive-native-standard#readme",
+  "bugs": {
+    "url": "https://github.com/zhongjie10086/dsh-adaptive-native-standard/issues"
+  },
+  "keywords": [
+    "deepseek",
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "agent-preset",
+    "windows",
+    "git-bash",
+    "coding-agent"
+  ],
   "license": "MIT",
   "engines": {
     "node": ">=22.19.0"
