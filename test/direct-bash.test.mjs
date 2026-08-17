@@ -6,6 +6,7 @@ import {
   apply,
   detectShellPath,
   inject,
+  isWindowsSystemBashDirectory,
   name,
   renderDirectResult,
   resolveDirectConfig,
@@ -114,7 +115,38 @@ test('discovers Git Bash deterministically and converts only MSYS drive paths', 
   assert.equal(toWindowsPath('/d/repo/src'), winDrive)
   assert.equal(toWindowsPath('/usr/bin'), '/usr/bin')
   assert.equal(detectShellPath('C:\\Custom\\bash.exe', {}), 'C:\\Custom\\bash.exe')
-  assert.equal(detectShellPath(undefined, {}), 'bash')
+  assert.equal(detectShellPath(undefined, {}, () => false, 'linux'), 'bash')
+})
+
+test('skips Windows WSL launcher directories while discovering Git Bash from PATH', () => {
+  const env = {
+    SystemRoot: 'C:\\Windows',
+    Path: '"C:\\Windows\\System32";C:\\Windows\\Sysnative;D:\\PortableGit\\bin',
+  }
+  const portable = 'D:\\PortableGit\\bin\\bash.exe'
+  assert.equal(isWindowsSystemBashDirectory('c:\\WINDOWS\\system32\\', env), true)
+  assert.equal(isWindowsSystemBashDirectory('C:\\Windows\\Sysnative', env), true)
+  assert.equal(isWindowsSystemBashDirectory('C:\\Windows\\SysWOW64', env), true)
+  assert.equal(isWindowsSystemBashDirectory('D:\\PortableGit\\bin', env), false)
+  assert.equal(
+    detectShellPath(undefined, env, candidate => candidate.toLowerCase() === portable.toLowerCase(), 'win32'),
+    portable,
+  )
+})
+
+test('fails clearly instead of falling back to a Windows WSL bash launcher', () => {
+  const env = {
+    WINDIR: 'C:\\Windows',
+    PATH: '%WINDIR%\\System32;C:\\Windows\\SysWOW64',
+  }
+  assert.throws(
+    () => detectShellPath(undefined, env, () => true, 'win32'),
+    /Git Bash not found.*bashPath\/GIT_BASH/,
+  )
+  assert.equal(
+    detectShellPath('C:\\Explicit\\bash.exe', env, () => false, 'win32'),
+    'C:\\Explicit\\bash.exe',
+  )
 })
 
 test('selects only the safe managed DSH environment and keeps JSONL opt-in', () => {

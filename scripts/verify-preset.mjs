@@ -13,7 +13,7 @@ const bundleInstaller = readFileSync(join(root, 'index.mjs'), 'utf8')
 const lock = JSON.parse(readFileSync(join(root, 'upstream-lock.json'), 'utf8'))
 
 assert.equal(packageJson.name, 'dsh-adaptive-native-standard')
-assert.equal(packageJson.version, '0.2.0')
+assert.equal(packageJson.version, '0.2.1')
 assert.equal(packageJson.main, './index.mjs')
 assert.equal(packageJson.dsh?.bundle?.patch, './cordis.patch.yml')
 assert.ok(packageJson.files.includes('preset/'))

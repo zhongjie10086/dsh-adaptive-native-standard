@@ -1,6 +1,6 @@
 {
   "name": "dsh-adaptive-native-standard",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Windows-native Adaptive Standard preset for DeepSeek Harness",
   "type": "module",

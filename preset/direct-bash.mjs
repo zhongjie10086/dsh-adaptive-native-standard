@@ -43,8 +43,8 @@ const SAFE_DSH_ENV_KEYS = Object.freeze([
 const DSH_SESSION_JSONL_KEY = 'DSH_SESSION_JSONL'
 
 /** Convert `/d/path` to `D:\\path` without mangling MSYS roots like `/usr`. */
-export function toWindowsPath(value) {
-  if (process.platform !== 'win32' || typeof value !== 'string' || value.length === 0) return value
+export function toWindowsPath(value, platform = process.platform) {
+  if (platform !== 'win32' || typeof value !== 'string' || value.length === 0) return value
   const match = /^\/([A-Za-z])(?:$|\/(.*))$/.exec(value)
   if (match === null) return value
   const drive = `${match[1].toUpperCase()}:`
@@ -52,35 +52,100 @@ export function toWindowsPath(value) {
   return rest.length === 0 ? `${drive}\\` : `${drive}\\${rest.replace(/\//g, '\\')}`
 }
 
-function shellPathCandidates(env) {
-  const roots = [env.ProgramW6432, env.ProgramFiles, env['ProgramFiles(x86)']]
-    .filter(value => typeof value === 'string' && value.length > 0)
-    .map(root => `${root}\\Git\\bin\\bash.exe`)
-  const candidates = [
-    env.GIT_BASH,
-    ...roots,
-    env.LOCALAPPDATA === undefined ? undefined : `${env.LOCALAPPDATA}\\Programs\\Git\\bin\\bash.exe`,
-  ]
-  if (typeof env.PATH === 'string' && env.PATH.length > 0) {
-    for (const directory of env.PATH.split(';')) {
-      if (directory.length > 0) candidates.push(`${directory}\\bash.exe`)
+function environmentValue(env, key) {
+  if (typeof env[key] === 'string') return env[key]
+  const match = Object.keys(env).find(candidate => candidate.toLowerCase() === key.toLowerCase())
+  return match === undefined ? undefined : env[match]
+}
+
+function expandWindowsEnvironment(value, env) {
+  return value.replace(/%([^%]+)%/g, (token, key) => environmentValue(env, key) ?? token)
+}
+
+function cleanWindowsDirectory(value, env) {
+  if (typeof value !== 'string') return undefined
+  let cleaned = expandWindowsEnvironment(value.trim(), env)
+  if (cleaned.length >= 2 && cleaned.startsWith('"') && cleaned.endsWith('"')) {
+    cleaned = cleaned.slice(1, -1).trim()
+  }
+  return cleaned.length === 0 ? undefined : cleaned
+}
+
+function normalizedWindowsDirectory(value, env) {
+  const cleaned = cleanWindowsDirectory(value, env)
+  if (cleaned === undefined) return undefined
+  return win32.normalize(cleaned).replace(/[\\/]+$/, '').toLowerCase()
+}
+
+/** True only for Windows' WSL/Store bash launcher directories, not Git Bash. */
+export function isWindowsSystemBashDirectory(directory, env = process.env) {
+  const normalized = normalizedWindowsDirectory(directory, env)
+  if (normalized === undefined) return false
+
+  const roots = [environmentValue(env, 'SystemRoot'), environmentValue(env, 'WINDIR')]
+    .map(root => normalizedWindowsDirectory(root, env))
+    .filter(root => root !== undefined)
+  for (const root of new Set(roots)) {
+    if (['system32', 'sysnative', 'syswow64'].some(name => normalized === win32.join(root, name).toLowerCase())) {
+      return true
     }
   }
-  return candidates
+
+  // Keep deterministic tests and unusually sparse service environments safe.
+  return /^[a-z]:\\windows\\(?:system32|sysnative|syswow64)$/i.test(normalized)
+}
+
+function shellPathCandidates(env) {
+  const roots = [
+    environmentValue(env, 'ProgramW6432'),
+    environmentValue(env, 'ProgramFiles'),
+    environmentValue(env, 'ProgramFiles(x86)'),
+  ]
+    .map(value => cleanWindowsDirectory(value, env))
+    .filter(value => value !== undefined)
+    .map(root => `${root}\\Git\\bin\\bash.exe`)
+  const localAppData = cleanWindowsDirectory(environmentValue(env, 'LOCALAPPDATA'), env)
+  const candidates = [
+    environmentValue(env, 'GIT_BASH'),
+    ...roots,
+    localAppData === undefined ? undefined : `${localAppData}\\Programs\\Git\\bin\\bash.exe`,
+  ]
+  const searchPath = environmentValue(env, 'PATH')
+  if (typeof searchPath === 'string' && searchPath.length > 0) {
+    for (const rawDirectory of searchPath.split(';')) {
+      const directory = cleanWindowsDirectory(rawDirectory, env)
+      if (directory !== undefined && !isWindowsSystemBashDirectory(directory, env)) {
+        candidates.push(`${directory}\\bash.exe`)
+      }
+    }
+  }
+  const seen = new Set()
+  return candidates.flatMap(candidate => {
+    if (typeof candidate !== 'string') return []
+    const cleaned = cleanWindowsDirectory(candidate, env)
+    if (cleaned === undefined) return []
+    const key = win32.normalize(cleaned).toLowerCase()
+    if (seen.has(key)) return []
+    seen.add(key)
+    return [cleaned]
+  })
 }
 
 /** Resolve an explicit shell or discover Git for Windows in deterministic order. */
-export function detectShellPath(explicit, env = process.env) {
-  if (process.platform !== 'win32') {
+export function detectShellPath(explicit, env = process.env, pathExists = existsSync, platform = process.platform) {
+  if (platform !== 'win32') {
     return typeof explicit === 'string' && explicit.length > 0 ? explicit : 'bash'
   }
-  if (typeof explicit === 'string' && explicit.length > 0) return toWindowsPath(explicit)
+  const configured = cleanWindowsDirectory(explicit, env)
+  if (configured !== undefined) return toWindowsPath(configured, platform)
   for (const candidate of shellPathCandidates(env)) {
-    if (typeof candidate === 'string' && candidate.length > 0 && existsSync(candidate)) {
-      return toWindowsPath(candidate)
+    if (pathExists(candidate)) {
+      return toWindowsPath(candidate, platform)
     }
   }
-  return 'bash'
+  throw new Error(
+    `${name}: Git Bash not found. Install Git for Windows or set bashPath/GIT_BASH to its bash.exe path.`,
+  )
 }
 
 const commandSchema = {

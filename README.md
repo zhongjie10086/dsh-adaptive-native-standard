@@ -2,7 +2,7 @@
 
 面向 Windows 原生 DeepSeek Harness（DSH）的社区 Agent Preset。它以官方 Standard 的完整能力为底座，首请求仅锚定 Minimal persona，之后启用任务自适应路由、按需工具发现和紧凑的 Git Bash 执行器。
 
-当前版本：`0.2.0`
+当前版本：`0.2.1`
 
 > 本项目不是 DeepSeek 官方项目，也不受 DeepSeek 官方背书。
 
@@ -21,7 +21,7 @@
 - **自适应路由**：按任务选择 `spec`、`react` 或 `weak`，支持自动模式和手动锁定。
 - **we-need 推理风格**：作为可关闭的私有推理引导，不要求输出 `<think>` 标签，也不改变最终回复语言。
 - **按需能力解锁**：通过 `dev_tool_search` 解锁 Git Bash、旧编辑器、Web、subagent、workflow、goal、jobs 等工具。
-- **Direct Bash**：自动探测 Git for Windows，处理 Windows/MSYS 路径、相对工作目录、超时、取消、进程树终止、长输出截断和完整输出 spill。
+- **Direct Bash**：自动探测 Git for Windows，跳过 `System32 / Sysnative / SysWOW64` 中的 WSL 启动器，并处理 Windows/MSYS 路径、相对工作目录、超时、取消、进程树终止、长输出截断和完整输出 spill；找不到 Git Bash 时会给出明确错误，不会回退到含义不确定的裸 `bash`。
 - **清晰的命令结果**：stdout/stderr 分开呈现，非零退出作为普通命令结果返回，并明确标记 `[exit code: N]`。
 - **会话隔离**：为 Bash 注入安全的 `DSH_HOME / DSH_SHELL / DSH_SESSION_ID / DSH_WEB_URL` 子集；默认不暴露 `DSH_SESSION_JSONL`。
 

@@ -26,6 +26,7 @@ coverage/
 *.tgz
 *.zip
 generation.json
+pnpm-lock.yaml
 
 # Editor / OS files
 .vscode/
