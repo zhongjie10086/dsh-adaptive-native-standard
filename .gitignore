@@ -2,6 +2,11 @@
 .artifacts/
 .generated/
 eval/
+evaluation/
+docs/private/
+docs/evaluations/
+docs/plans/
+benchmarks/private/
 test/eval-tasks.test.mjs
 test/behavior-audit.test.mjs
 scripts/official-smoke.mjs
@@ -16,6 +21,12 @@ scripts/official-posix-autonomy.mjs
 *.pfx
 *.p12
 *.jsonl
+*.jsonl.zstd
+*.zstd
+settings.json
+settings.local.json
+state.json
+browser-profiles/
 
 # Generated output, logs, caches, and archives
 node_modules/

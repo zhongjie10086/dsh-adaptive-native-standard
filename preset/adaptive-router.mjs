@@ -2,9 +2,10 @@
  * Post-anchor task router for Adaptive Native Standard.
  *
  * tool-bootstrap.mjs exclusively owns the request-phase tool catalog. This
- * plugin leaves the persona-only bootstrap request untouched, then appends
- * spec/react/weak guidance to the selected base preset persona after a durable
- * promotion signal. Failures are fail-open and trip a small circuit breaker.
+ * For Adaptive Native Minimal, the bootstrap request keeps the Minimal base
+ * while adding only the selected spec/react/weak task persona; Weak tasks may
+ * also receive their compact near-field guide. Durable promotion restores the
+ * wider runtime surface. Failures are fail-open and trip a small circuit breaker.
  */
 
 import { createEpochPromotion } from './compaction-epoch.mjs'
@@ -34,12 +35,15 @@ const TOOL_MODE = 'dev_adaptive_mode'
 const PERSONA_SECTION = 'deployment:persona'
 const BOOTSTRAP_MINIMAL_EXACT = 'minimal-exact'
 const BOOTSTRAP_MINIMAL_PERSONA = 'minimal-persona'
+const BOOTSTRAP_MINIMAL_FIRST = 'minimal-first'
+const MINIMAL_BOOTSTRAP_PERSONA = BASE_PERSONA
 const ALLOWED_KEYS = new Set([
   'defaultMode',
   'reasoningStyle',
   'nearFieldGuidance',
   'maxFaults',
   'bootstrapAnchor',
+  'resetOnCompaction',
 ])
 
 function toJsonSchema(spec) {
@@ -78,8 +82,11 @@ function parseConfig(config) {
     throw new TypeError(`${name}: maxFaults must be an integer from 1 to 100`)
   }
   const bootstrapAnchor = source.bootstrapAnchor ?? BOOTSTRAP_MINIMAL_EXACT
-  if (bootstrapAnchor !== BOOTSTRAP_MINIMAL_EXACT && bootstrapAnchor !== BOOTSTRAP_MINIMAL_PERSONA) {
-    throw new TypeError(`${name}: bootstrapAnchor must be "minimal-exact" or "minimal-persona"`)
+  if (![BOOTSTRAP_MINIMAL_EXACT, BOOTSTRAP_MINIMAL_PERSONA, BOOTSTRAP_MINIMAL_FIRST].includes(bootstrapAnchor)) {
+    throw new TypeError(`${name}: bootstrapAnchor must be "minimal-exact", "minimal-persona", or "minimal-first"`)
+  }
+  if (source.resetOnCompaction !== undefined && typeof source.resetOnCompaction !== 'boolean') {
+    throw new TypeError(`${name}: resetOnCompaction must be boolean`)
   }
   return {
     defaultMode,
@@ -87,6 +94,7 @@ function parseConfig(config) {
     nearFieldGuidance: source.nearFieldGuidance ?? true,
     maxFaults,
     bootstrapAnchor,
+    resetOnCompaction: source.resetOnCompaction !== false,
   }
 }
 
@@ -99,6 +107,24 @@ function anchorPersonaOnly(sections) {
   })
   if (!replaced) throw new Error(`assembled prompt has no ${PERSONA_SECTION} section`)
   return anchored
+}
+
+/**
+ * Keep conditional/tool-specific sections while replacing Standard's fixed
+ * identity and deployment persona with one Minimal base. This is the
+ * post-bootstrap surface for Adaptive Native Minimal: capabilities may add
+ * their own rules on demand, but the Standard identity is never restored.
+ */
+function minimalAdaptiveSections(sections) {
+  const rest = (Array.isArray(sections) ? sections : []).filter(section => {
+    const sectionName = typeof section?.name === 'string' ? section.name : ''
+    return sectionName !== 'harness:identity'
+      && sectionName !== PERSONA_SECTION
+      && sectionName !== 'adaptive-bootstrap-persona'
+      && sectionName !== 'adaptive-minimal-persona'
+      && sectionName !== 'adaptive-persona'
+  })
+  return [{ name: 'adaptive-minimal-persona', text: BASE_PERSONA, order: -900 }, ...rest]
 }
 
 function modeFromArguments(raw) {
@@ -128,9 +154,16 @@ function phaseLabel(status) {
 
 export function apply(ctx, config) {
   const options = parseConfig(config)
-  const promotion = createEpochPromotion(['tool/call', 'assistant/message'])
+  const promotion = createEpochPromotion(['tool/call', 'assistant/message'], {
+    resetOnCompaction: options.resetOnCompaction,
+  })
   const agents = new Map()
   const liveOverrides = new Map()
+  // DSH claims the pending user message immediately before assembling the
+  // prompt, but appends the durable `user/message` only after assembly. Keep
+  // that exact claimed text long enough for request #1 routing; once the
+  // durable message exists it remains the authoritative source.
+  const claimedTaskTexts = new WeakMap()
   let faults = 0
   let disabled = false
 
@@ -154,9 +187,15 @@ export function apply(ctx, config) {
     liveOverrides.has(session.id) ? liveOverrides.get(session.id) : durableOverride(session),
   )
 
+  const taskTextFor = (agent) => {
+    const durable = firstRealUserText(agent?.session)
+    return durable.length > 0 ? durable : claimedTaskTexts.get(agent) ?? ''
+  }
+
   // The generated composition owns its real base persona (Standard or
-  // Creator). We replace the assembled sections only for request #1, then
-  // preserve that base persona and append adaptive guidance after promotion.
+  // Creator). Minimal-first replaces the assembled sections for request #1
+  // with its compact base plus one selected Adaptive task persona, then keeps
+  // that pair while restoring conditional runtime sections after promotion.
   // A static `complete: true` persona is intentionally forbidden because DSH
   // restores complete sections after the waterfall and would erase routing.
   if (options.bootstrapAnchor === BOOTSTRAP_MINIMAL_EXACT) {
@@ -175,6 +214,16 @@ export function apply(ctx, config) {
     }
   })
 
+  // ReactLoopAgent emits this notification synchronously from inbox.claim(),
+  // before systemPrompt.assemble(). This is the supported lifecycle seam for
+  // classifying the real first request without copying the user message or
+  // depending on persistence timing.
+  ctx.on('agent/inbox/claimed', ({ agent, message }) => {
+    if (message?.source?.kind !== 'user') return
+    const text = extractText(message)
+    if (text.length > 0) claimedTaskTexts.set(agent, text)
+  })
+
   ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
     const assembled = await next()
     try {
@@ -189,19 +238,35 @@ export function apply(ctx, config) {
             sections: anchorPersonaOnly(assembled.sections),
           }
         }
+        const bootstrapSections = [{
+          name: 'adaptive-bootstrap-persona',
+          text: MINIMAL_BOOTSTRAP_PERSONA,
+        }]
+        if (options.bootstrapAnchor === BOOTSTRAP_MINIMAL_FIRST) {
+          const taskText = taskTextFor(agent)
+          const mode = selectedMode(session, taskText)
+          const sections = mode === MODE_CHAT || taskText.length === 0
+            ? bootstrapSections
+            : applyPersona(bootstrapSections, personaFor(mode, agent.options?.model, options.reasoningStyle))
+          return { ...assembled, sections, contexts: [] }
+        }
         return {
           ...assembled,
-          sections: [{ name: 'adaptive-bootstrap-persona', text: BASE_PERSONA }],
+          sections: bootstrapSections,
           contexts: [],
         }
       }
       if (disabled) return assembled
 
-      const taskText = firstRealUserText(session)
+      const taskText = taskTextFor(agent)
       const mode = selectedMode(session, taskText)
-      if (mode === MODE_CHAT || taskText.length === 0) return assembled
+      const baseSections = options.bootstrapAnchor === BOOTSTRAP_MINIMAL_FIRST
+        ? minimalAdaptiveSections(assembled.sections)
+        : assembled.sections
+      const based = baseSections === assembled.sections ? assembled : { ...assembled, sections: baseSections }
+      if (mode === MODE_CHAT || taskText.length === 0) return based
       const persona = personaFor(mode, agent.options?.model, options.reasoningStyle)
-      return { ...assembled, sections: applyPersona(assembled.sections, persona) }
+      return { ...based, sections: applyPersona(baseSections, persona) }
     } catch (error) {
       trip('prompt assembly', error)
       return assembled
@@ -216,7 +281,10 @@ export function apply(ctx, config) {
     const decision = await next()
     if (decision.kind === 'reject' || disabled) return decision
     try {
-      if (agent === undefined || !promotion.status(agent).promoted || !Array.isArray(decision.messages)) {
+      const bootstrapGuidance = options.bootstrapAnchor === BOOTSTRAP_MINIMAL_FIRST
+      if (agent === undefined
+        || (!promotion.status(agent).promoted && !bootstrapGuidance)
+        || !Array.isArray(decision.messages)) {
         return decision
       }
       if (decision.messages.some(message =>
@@ -228,7 +296,7 @@ export function apply(ctx, config) {
       const text = extractText(userMessage)
       if (isChatTask(text)) return decision
       const session = agent.session
-      const mode = selectedMode(session, firstRealUserText(session))
+      const mode = selectedMode(session, taskTextFor(agent))
       const round = session.events.filter(isRealUserMessage).length + 1
       const guidance = []
       if (options.nearFieldGuidance && mode === MODE_WEAK) {
@@ -265,7 +333,7 @@ export function apply(ctx, config) {
       const agent = execution?.agent ?? [...agents.values()].at(-1)
       if (agent === undefined) return 'no agent session'
       const session = agent.session
-      const taskText = firstRealUserText(session)
+      const taskText = taskTextFor(agent)
       const override = liveOverrides.has(session.id) ? liveOverrides.get(session.id) : durableOverride(session)
       const mode = selectedMode(session, taskText)
       const status = promotion.status(agent)
@@ -276,6 +344,7 @@ export function apply(ctx, config) {
         `model=${agent.options?.model ?? 'unknown'}`,
         `reasoning-style=${options.reasoningStyle}`,
         `bootstrap-anchor=${options.bootstrapAnchor}`,
+        `compaction-reset=${options.resetOnCompaction ? 'on' : 'off'}`,
         `near-field=${options.nearFieldGuidance ? 'on' : 'off'}`,
         `complex=${isComplexTask(taskText) ? 'yes' : 'no'}`,
         `task=${JSON.stringify(taskText.slice(0, 120))}`,
@@ -303,7 +372,7 @@ export function apply(ctx, config) {
       if (session === undefined) return 'no agent session'
       if (parsed === MODE_AUTO) liveOverrides.delete(session.id)
       else liveOverrides.set(session.id, parsed)
-      const taskText = firstRealUserText(session)
+      const taskText = taskTextFor(execution.agent)
       const resolved = selectedMode(session, taskText)
       return parsed === MODE_AUTO
         ? `mode lock cleared; automatic routing resolves to ${resolved}`

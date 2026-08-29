@@ -4,7 +4,8 @@
  * durable tool call or assistant reply. Unlocked tool names are reconstructed
  * from durable events, so resume and reload preserve them.
  *
- * Compaction starts a new epoch. The configured compaction work set remains
+ * By default compaction starts a new epoch. Callers may make promotion
+ * session-permanent; otherwise the configured compaction work set remains
  * available while the router waits for a new promotion signal. Subagents are
  * promoted by default, and missing configured tools fail open to the assembled
  * catalog so composition drift cannot make every request unusable.
@@ -36,7 +37,15 @@ const PROMOTE_EVENTS = {
 }
 
 /** Every config key this plugin accepts — anything else is a typo. */
-const ALLOWED_KEYS = new Set(['bootstrapTools', 'residentTools', 'promoteOn', 'bootstrapMaxTokens', 'suppressedContextSources', 'compactionTools'])
+const ALLOWED_KEYS = new Set([
+  'bootstrapTools',
+  'residentTools',
+  'promoteOn',
+  'bootstrapMaxTokens',
+  'suppressedContextSources',
+  'compactionTools',
+  'resetOnCompaction',
+])
 
 /**
  * Context sources stripped from the first request by default. Both are
@@ -100,6 +109,12 @@ function optionalPositiveInt(value, field) {
   return value
 }
 
+function booleanOption(value, field, fallback) {
+  if (value === undefined) return fallback
+  if (typeof value !== 'boolean') throw new TypeError(`${name}: ${field} must be boolean`)
+  return value
+}
+
 /** Register the per-session bootstrap filters. */
 export function apply(ctx, config) {
   const source = config === undefined ? {} : config
@@ -119,12 +134,13 @@ export function apply(ctx, config) {
   const promoteEvents = parsePromoteOn(source.promoteOn)
   const bootstrapMaxTokens = optionalPositiveInt(source.bootstrapMaxTokens, 'bootstrapMaxTokens')
   const suppressedSources = sourceList(source.suppressedContextSources, 'suppressedContextSources', DEFAULT_SUPPRESSED_SOURCES)
+  const resetOnCompaction = booleanOption(source.resetOnCompaction, 'resetOnCompaction', true)
   // Core work set exposed after a compaction, before re-promotion. Empty
   // means "no compaction recovery catalog": the session stays on the
   // bootstrap pair until a new promotion signal.
   const compactionTools = stringListOrEmpty(source.compactionTools, 'compactionTools')
 
-  const promotion = createEpochPromotion(promoteEvents)
+  const promotion = createEpochPromotion(promoteEvents, { resetOnCompaction })
   ctx.on('session/event', (session, event) => promotion.observe(session, event))
 
   let warned = false

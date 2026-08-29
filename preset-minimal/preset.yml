@@ -1,0 +1,3 @@
+name: Adaptive Native Minimal
+description: Windows-native Minimal-first context with adaptive task routing, read/tool-discovery bootstrap, and durable on-demand capabilities.
+order: 9

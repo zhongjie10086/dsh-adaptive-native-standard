@@ -7,10 +7,12 @@
  * workspace-instruction baseline is re-injected from scratch. The first
  * post-compaction request is therefore a "second first request" — the same
  * first-request conditions the preset controls. Promotion is
- * epoch-aware: only a durable promotion signal (`tool/call` and/or
+ * epoch-aware by default: only a durable promotion signal (`tool/call` and/or
  * `assistant/message`, per the caller's `promoteEvents`) recorded AFTER the
  * last `compaction/end` boundary counts as promoted. Before any compaction
  * the boundary is -1, which preserves the original one-shot semantics.
+ * Callers may set `resetOnCompaction: false` when promotion is a permanent
+ * session transition (Adaptive Native Minimal uses this form).
  *
  * State is memoized per session id and maintained incrementally through
  * `observe()`; a cold session scans its durable log once (so resume and
@@ -25,6 +27,7 @@
 /** Build one epoch-aware promotion tracker. */
 export function createEpochPromotion(promoteEvents, options = {}) {
   const includeSubagents = options.includeSubagents === true
+  const resetOnCompaction = options.resetOnCompaction !== false
   const promote = new Set(promoteEvents)
   /** sessionId -> { boundary, promoted } */
   const state = new Map()
@@ -37,7 +40,7 @@ export function createEpochPromotion(promoteEvents, options = {}) {
       const seq = event.seq ?? 0 // events without a seq are treated as post-boundary
       if (event.type === 'compaction/end') {
         boundary = seq
-        promoted = false
+        if (resetOnCompaction) promoted = false
         continue
       }
       if (promote.has(event.type) && seq > boundary) promoted = true
@@ -53,7 +56,8 @@ export function createEpochPromotion(promoteEvents, options = {}) {
      * @param agent - the assembly/pre-step agent, or undefined outside an agent.
      * @returns { boundary, promoted } — `boundary` is the last compaction/end
      *   seq (-1 before any compaction); `promoted` is true when a durable
-     *   promotion signal exists after that boundary.
+     *   promotion signal exists in the active epoch, or anywhere in the
+     *   session when compaction reset is disabled.
      */
     status(agent) {
       if (agent === undefined) return { boundary: -1, promoted: true }
@@ -70,7 +74,10 @@ export function createEpochPromotion(promoteEvents, options = {}) {
       if (entry === undefined) return
       const seq = event.seq ?? 0
       if (event.type === 'compaction/end') {
-        state.set(session.id, { boundary: seq, promoted: false })
+        state.set(session.id, {
+          boundary: seq,
+          promoted: resetOnCompaction ? false : entry.promoted,
+        })
         return
       }
       if (promote.has(event.type) && seq > entry.boundary && !entry.promoted) {

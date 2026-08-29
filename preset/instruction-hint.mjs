@@ -45,6 +45,7 @@ const PROMOTE_EVENTS = {
 /** Candidate file names, in probe order, for the project chain and user-global. */
 const PROJECT_CANDIDATES = ['AGENTS.md', 'CLAUDE.md', 'AGENTS.local.md', 'CLAUDE.local.md']
 const USER_GLOBAL_CANDIDATE = 'AGENTS.md'
+const ALLOWED_KEYS = new Set(['promoteOn', 'resetOnCompaction'])
 
 function parsePromoteOn(value) {
   if (value === undefined || value === 'either') return PROMOTE_EVENTS.either
@@ -101,10 +102,30 @@ function parentPath(path) {
   return parent.length === 0 ? path : parent
 }
 
+function hasDurableHint(session) {
+  return Array.isArray(session?.events) && session.events.some(event => {
+    if (event?.type !== 'user/message') return false
+    const data = event.data ?? {}
+    const message = typeof data.message === 'object' && data.message !== null ? data.message : data
+    return message.source?.kind === 'instruction-hint' || data.source?.kind === 'instruction-hint'
+  })
+}
+
 /** Register the post-promotion instruction-hint injector. */
 export function apply(ctx, config) {
-  const promoteEvents = parsePromoteOn(config.promoteOn)
-  const promotion = createEpochPromotion(promoteEvents)
+  const source = config ?? {}
+  if (typeof source !== 'object' || source === null || Array.isArray(source)) {
+    throw new TypeError(`${name}: config must be an object`)
+  }
+  const unknown = Object.keys(source).filter(key => !ALLOWED_KEYS.has(key))
+  if (unknown.length > 0) throw new TypeError(`${name}: unknown config key(s): ${unknown.join(', ')}`)
+  if (source.resetOnCompaction !== undefined && typeof source.resetOnCompaction !== 'boolean') {
+    throw new TypeError(`${name}: resetOnCompaction must be boolean`)
+  }
+  const promoteEvents = parsePromoteOn(source.promoteOn)
+  const promotion = createEpochPromotion(promoteEvents, {
+    resetOnCompaction: source.resetOnCompaction !== false,
+  })
   ctx.on('session/event', (session, event) => promotion.observe(session, event))
 
   /** Sessions that already received the hint. */
@@ -125,7 +146,7 @@ export function apply(ctx, config) {
     try {
       if (promotion.status(agent).promoted !== true) return decision
       const session = agent.session
-      if (session === undefined || hinted.has(session.id)) return decision
+      if (session === undefined || hinted.has(session.id) || hasDurableHint(session)) return decision
       hinted.add(session.id)
 
       const fs = ctx.get('fs')

@@ -2,9 +2,8 @@
  * dev-tool-search — on-demand tool discovery and unlock, the tool-search
  * pattern for Adaptive Native Standard.
  *
- * The promoted phase keeps the six native Windows work tools plus discovery
- * and adaptive-control tools instead of dumping the whole Standard catalog.
- * This plugin registers ONE small tool:
+ * Each preset keeps its own deliberately small resident work surface instead
+ * of dumping the whole Standard catalog. This plugin registers ONE small tool:
  *
  *  - `dev_tool_search` — search the FULL assembled catalog by keyword and
  *    return matching tool names with short descriptions; optionally unlock
@@ -44,9 +43,9 @@ function toJsonSchema(spec) {
  * exists without receiving the full catalog on every request.
  */
 const UNLOCKABLE_INDEX = [
-  'bash — Git Bash for commands that genuinely require POSIX shell syntax',
   'str_replace_editor — legacy absolute-path text editor; prefer read/write/edit for ordinary file work',
-  'web_search — internet search and web retrieval',
+  'web_search — internet search',
+  'web_fetch — retrieve a specific HTTP(S) URL when Fetch is enabled and registered',
   'subagent / subagent_fork — delegate work to sub-agents',
   'workflow — run multi-agent workflow scripts',
   'ralph — fresh-agent iterative loop',
@@ -56,6 +55,7 @@ const UNLOCKABLE_INDEX = [
   'interrupt_agent / send_message / list_agents — multi-agent control',
   'todo_write — task tracking',
   'ask_user_question — ask the user',
+  'bash — Git Bash for commands that genuinely require POSIX shell syntax',
 ]
 
 /** Register the model-facing `dev_tool_search` tool. */
@@ -65,7 +65,7 @@ export function apply(ctx) {
     description: [
       'Discover and unlock tools that are NOT currently available.',
       '',
-      'The resident work set is: pwsh, read, write, edit, glob, and grep. Everything else is unlocked on demand through this tool.',
+      'The visible catalog is intentionally small. Everything else is unlocked on demand through this tool.',
       '',
       'If the current task needs any of the following, call dev_tool_search FIRST — do not emulate unavailable capabilities with the resident tools:',
       ...UNLOCKABLE_INDEX.map((line) => `- ${line}`),

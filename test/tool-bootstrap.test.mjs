@@ -381,6 +381,35 @@ test('a compaction resets promotion; a new signal after the boundary re-promotes
   assert.deepEqual(rePromoted.tools.map((tool) => tool.name).sort(), ['bash', 'str_replace_editor'])
 })
 
+test('a Minimal-first preset can keep promotion across compaction and resume', async () => {
+  const { listeners } = register({
+    bootstrapTools: ['read', 'dev_tool_search'],
+    residentTools: ['pwsh', 'write', 'edit', 'glob', 'grep', 'dev_tool_search'],
+    resetOnCompaction: false,
+    compactionTools: ['read', 'dev_tool_search'],
+  })
+  const tools = [
+    { name: 'pwsh' },
+    { name: 'read' },
+    { name: 'dev_tool_search' },
+    { name: 'write' },
+    { name: 'edit' },
+    { name: 'glob' },
+    { name: 'grep' },
+  ]
+  const first = await assemble(listeners['system-prompt/assemble'], [], tools, 'minimal-fresh')
+  assert.deepEqual(first.tools.map(tool => tool.name).sort(), ['dev_tool_search', 'read'])
+
+  const events = [
+    { type: 'tool/call', seq: 1, data: { name: 'read', arguments: '{}' } },
+    { type: 'compaction/end', seq: 2, data: {} },
+  ]
+  const result = await assemble(listeners['system-prompt/assemble'], events, tools, 'minimal-resumed')
+  assert.deepEqual(result.tools.map(tool => tool.name).sort(), [
+    'dev_tool_search', 'edit', 'glob', 'grep', 'pwsh', 'read', 'write',
+  ])
+})
+
 test('pre-compaction promotion signals do not re-promote after a compaction', async () => {
   const { listeners } = register()
   const tools = [{ name: 'bash' }, { name: 'str_replace_editor' }, { name: 'read' }]
@@ -407,6 +436,10 @@ test('subagents (delegationDepth > 0) are always promoted', async () => {
 test('invalid compactionTools values fail at apply time', () => {
   assert.throws(() => register({ ...config, compactionTools: [] }), /compactionTools/)
   assert.throws(() => register({ ...config, compactionTools: ['read', 42] }), /compactionTools/)
+})
+
+test('invalid resetOnCompaction values fail at apply time', () => {
+  assert.throws(() => register({ ...config, resetOnCompaction: 'no' }), /resetOnCompaction/)
 })
 
 test('unknown config keys reject at apply time', () => {

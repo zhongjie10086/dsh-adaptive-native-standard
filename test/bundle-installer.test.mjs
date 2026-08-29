@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
-import { installPreset } from '../index.mjs'
+import { installPreset, installPresets } from '../index.mjs'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
 const source = join(root, 'preset')
@@ -33,6 +33,36 @@ test('bundle installer deploys the complete preset and is idempotent', async t =
 
   const second = await installPreset({ dshHome: home, log })
   assert.equal(second.action, 'unchanged')
+})
+
+test('one bundle mount installs two independent self-contained presets', async t => {
+  const { home, log } = await fixture(t)
+  const results = await installPresets({ dshHome: home, log })
+  assert.deepEqual(results.map(result => result.action), ['installed', 'installed'])
+
+  const standard = join(home, '.agent-presets', 'adaptive-native-standard')
+  const minimal = join(home, '.agent-presets', 'adaptive-native-minimal')
+  assert.match(await readFile(join(standard, 'preset.yml'), 'utf8'), /^name: Adaptive Native Standard$/m)
+  assert.match(await readFile(join(minimal, 'preset.yml'), 'utf8'), /^name: Adaptive Native Minimal$/m)
+  assert.match(await readFile(join(minimal, 'agent.cordis.yml'), 'utf8'), /bootstrapTools: \[read, dev_tool_search\]/)
+  assert.match(await readFile(join(minimal, 'tool-bootstrap.mjs'), 'utf8'), /adaptive-tool-bootstrap/)
+  assert.equal((await readdir(minimal)).filter(file => file.endsWith('.mjs')).length,
+    (await readdir(source)).filter(file => file.endsWith('.mjs')).length)
+
+  const minimalOwner = JSON.parse(await readFile(join(minimal, '.dsh-preset-owner.json'), 'utf8'))
+  assert.equal(minimalOwner.package, 'dsh-adaptive-native-standard')
+  assert.equal(minimalOwner.preset, 'adaptive-native-minimal')
+
+  const repeated = await installPresets({ dshHome: home, log })
+  assert.deepEqual(repeated.map(result => result.action), ['unchanged', 'unchanged'])
+})
+
+test('installer rejects unknown preset ids', async t => {
+  const { home, log } = await fixture(t)
+  await assert.rejects(
+    installPreset({ dshHome: home, log, presetId: 'adaptive-native-unknown' }),
+    /unknown bundled preset/,
+  )
 })
 
 test('bundle installer safely adopts an identical manual installation', async t => {

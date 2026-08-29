@@ -67,6 +67,23 @@ test('after promotion ONE hint is injected once per session', async () => {
   assert.equal(second.messages.length, 1)
 })
 
+test('a durable prior hint prevents reinjection after process resume', async () => {
+  const { listeners } = register()
+  const agent = { session: session([
+    { type: 'tool/call', seq: 1, data: { name: 'read' } },
+    {
+      type: 'user/message',
+      seq: 2,
+      data: {
+        source: { kind: 'instruction-hint', form: 'hint' },
+        content: [{ type: 'text', text: 'existing hint' }],
+      },
+    },
+  ]) }
+  const result = await listeners['agent/pre-step']({ agent }, async () => decision())
+  assert.equal(result.messages.length, 1)
+})
+
 test('no instruction files found → no hint message', async () => {
   const listeners = {}
   const fs = {
@@ -100,4 +117,33 @@ test('missing fs service degrades to no hint (never throws)', async () => {
 test('the hint registers with prepend', () => {
   const { hookOptions } = register()
   assert.deepEqual(hookOptions['agent/pre-step'], { prepend: true })
+})
+
+test('session-scoped promotion still emits one hint after compaction', async () => {
+  const listeners = {}
+  const fs = {
+    async resolve(target) { return target },
+    async stat(target) {
+      return target.replace(/\\/g, '/').endsWith('/AGENTS.md') ? { type: 'file' } : undefined
+    },
+  }
+  const ctx = {
+    on(event, callback) { listeners[event] = callback },
+    get(service) { return service === 'fs' ? fs : undefined },
+    logger: { warn() {} },
+  }
+  apply(ctx, { promoteOn: 'either', resetOnCompaction: false })
+  const agent = { session: session([
+    { type: 'tool/call', seq: 1, data: { name: 'read' } },
+    { type: 'compaction/end', seq: 2, data: {} },
+  ]) }
+  const result = await listeners['agent/pre-step']({ agent }, async () => decision())
+  assert.equal(result.messages.length, 2)
+  assert.equal(result.messages[1].source.kind, 'instruction-hint')
+})
+
+test('invalid instruction-hint configuration fails at apply time', () => {
+  const ctx = { on() {}, logger: { warn() {} } }
+  assert.throws(() => apply(ctx, { resetOnCompaction: 'no' }), /resetOnCompaction/)
+  assert.throws(() => apply(ctx, { surprise: true }), /unknown config key/)
 })

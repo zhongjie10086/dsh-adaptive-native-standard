@@ -41,6 +41,27 @@ test('a compaction resets promotion regardless of earlier signals', () => {
   assert.equal(status.boundary, 2)
 })
 
+test('session-scoped promotion survives compaction and cold resume', () => {
+  const promotion = createEpochPromotion(['tool/call', 'assistant/message'], { resetOnCompaction: false })
+  const s = session([
+    { type: 'tool/call', seq: 1, data: { name: 'read' } },
+    { type: 'compaction/end', seq: 2 },
+  ])
+  const status = promotion.status({ session: s })
+  assert.equal(status.promoted, true)
+  assert.equal(status.boundary, 2)
+})
+
+test('session-scoped promotion remains durable across an observed compaction', () => {
+  const promotion = createEpochPromotion(['tool/call'], { resetOnCompaction: false })
+  const s = session([])
+  assert.equal(promotion.status({ session: s }).promoted, false)
+  promotion.observe(s, { type: 'tool/call', seq: 1, data: { name: 'read' } })
+  promotion.observe(s, { type: 'compaction/end', seq: 2 })
+  assert.equal(promotion.status({ session: s }).promoted, true)
+  assert.equal(promotion.status({ session: s }).boundary, 2)
+})
+
 test('only signals AFTER the compaction boundary count (old signals stay dead)', () => {
   const promotion = createEpochPromotion(['tool/call', 'assistant/message'])
   const s = session([
