@@ -1,6 +1,6 @@
 {
   "name": "dsh-adaptive-native-standard",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "private": true,
   "description": "Windows-native Adaptive Standard and Minimal-first presets for DeepSeek Harness",
   "type": "module",
@@ -26,11 +26,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/zhongjie10086/dsh-adaptive-native-standard.git"
+    "url": "git+https://github.com/zhongjie10086/dsh-adaptive-native.git"
   },
-  "homepage": "https://github.com/zhongjie10086/dsh-adaptive-native-standard#readme",
+  "homepage": "https://github.com/zhongjie10086/dsh-adaptive-native#readme",
   "bugs": {
-    "url": "https://github.com/zhongjie10086/dsh-adaptive-native-standard/issues"
+    "url": "https://github.com/zhongjie10086/dsh-adaptive-native/issues"
   },
   "keywords": [
     "deepseek",

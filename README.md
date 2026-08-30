@@ -2,7 +2,9 @@
 
 面向 Windows 原生 DeepSeek Harness（DSH）的社区 Agent Preset bundle。一次安装提供两个明确选项：**Adaptive Native Standard** 保留 Standard 上下文底座；**Adaptive Native Minimal** 的首个模型请求采用 Minimal 结构，仅暴露 `read + dev_tool_search`，随后持久提升、恢复 Windows 核心工具并按需发现重型能力。两者都使用自适应任务路由和紧凑的 Git Bash 执行器。
 
-当前版本：`0.2.2`
+当前版本：`0.3.0`
+
+GitHub 项目名为 **dsh-adaptive-native**。为避免已安装的 DSH bundle 被识别成第二个插件，内部兼容包名暂时保留为 `dsh-adaptive-native-standard`。
 
 > 本项目不是 DeepSeek 官方项目，也不受 DeepSeek 官方背书。
 
@@ -63,21 +65,21 @@ DSH 更新可能改变 Cordis composition、工具 schema 或服务边界。升�
 
 ```powershell
 Set-Location C:\Dev\deepseek-harness
-pnpm dsh plugin --profile web add github:zhongjie10086/dsh-adaptive-native-standard
+pnpm dsh plugin --profile web add github:zhongjie10086/dsh-adaptive-native
 pnpm dsh web
 ```
 
 如果使用已经安装到 PATH 的 `dsh` CLI：
 
 ```powershell
-dsh plugin --profile web add github:zhongjie10086/dsh-adaptive-native-standard
+dsh plugin --profile web add github:zhongjie10086/dsh-adaptive-native
 dsh web
 ```
 
 如果使用 DSH Desktop，请从托盘打开 **Open DSH Terminal**，安装到 Desktop 当前使用的 profile：
 
 ```powershell
-dsh plugin --profile desktop add github:zhongjie10086/dsh-adaptive-native-standard
+dsh plugin --profile desktop add github:zhongjie10086/dsh-adaptive-native
 ```
 
 bundle 首次随 profile 启动时，会部署两个自包含 Agent Preset：
@@ -97,6 +99,8 @@ bundle 首次随 profile 启动时，会部署两个自包含 Agent Preset：
 Set-Location C:\Dev\deepseek-harness
 pnpm dsh plugin --profile web remove dsh-adaptive-native-standard
 ```
+
+这里仍使用内部兼容包名 `dsh-adaptive-native-standard`，不是 GitHub 仓库名。保留该标识可让既有安装被识别为同一个 bundle，避免升级时出现重复插件或重复预设。
 
 DSH 当前没有 package-owned preset-root 的卸载钩子，因此移除 bundle 不会自动删除已经部署的 preset；如需同时移除，请继续使用本仓库的 `scripts/uninstall.ps1`，或在 Agent Presets 设置中删除对应目录。
 
@@ -176,11 +180,11 @@ Standard 的源配置位于 `preset/agent.cordis.yml`。Minimal 配置由 `scrip
 | Minimal `bootstrapTools` | `read, dev_tool_search` | 首个模型请求的唯一两个工具 |
 | Minimal `residentTools` | `pwsh, write, edit, glob, grep, dev_tool_search` | 与 bootstrap 合并后形成提升态 Windows 核心工具面 |
 | Minimal `resetOnCompaction` | `false` | 提升状态跨压缩和恢复保持 |
-| 统一搜索设置中的 `fetchEnabled` | `false` | 决定 DSH 下次启动时是否为 Adaptive 注册原生 `web_fetch` |
+| Standard / Minimal `web_fetch` | `true` | 两个预设固定注册 DSH 原生 Fetch；Minimal 首请求仍由双工具过滤器保持精简 |
 
 一般不建议启用 `includeSessionJsonl`。它可能暴露本地对话工件位置，而且落盘内容可能滞后于当前轮次。
 
-安装 DSH Unified Search 后，可在其设置页直接开启或关闭 Fetch。DSH rc.8 在进程启动时挂载 Preset，所以改动后需重启 DSH。这个开关只决定本 Preset 是否注册 DSH 已有的 `web_fetch` schema 与指引，不会增加第三个模型工具；正文 Provider、安全代理和 SSRF 边界仍由搜索插件负责。未安装统一搜索插件时保持关闭。
+DSH `0.1.2-alpha.1` 已在完整官方预设中开放 `web_fetch`，并提供带公网地址校验、DNS 固定和有界重定向的匿名 HTTP Provider。Adaptive Native Standard 与 Minimal 都沿用这一能力，不再从统一搜索插件读取跨项目开关；Minimal 的首个模型请求仍只有 `read + dev_tool_search`，提升后才可按需发现 Fetch。安装 DSH Unified Search 时，模型接口名称和预设可见性不变，只把正文后端替换为支持平台结构化读取、登录态与代理感知安全策略的 `unified-fetch`。
 
 ## 验证
 

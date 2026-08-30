@@ -378,15 +378,12 @@
   config:
     allowParallelInProgress: true
 
-# The `web` service and its search provider stay in the host composition; only
-# the model-facing tool is per-session. Unified Search owns the durable switch;
-# Loader resolves it when a NEW session mounts this preset. If that optional
-# plugin is absent, its settings namespace is unregistered and Fetch remains
-# off, preserving the official rc.8/previous Adaptive behavior. `ctx.get()` is
-# Cordis's optional service lookup: it avoids global tool injection and reads
-# only this namespace's boolean at new-session composition time.
+# DSH 0.1.2-alpha.1 makes Fetch a normal capability of its full presets and
+# ships a public-network-pinned HTTP provider. Adaptive Native follows that
+# baseline directly. Unified Search may replace the backend with unified-fetch,
+# but it no longer owns this preset's model-facing tool visibility.
 - id: tool-web
   name: '@deepseek-ai/dsh-tool-web'
   config:
-    fetch: !!js ctx.get('settings')?.get('dsh-unified-search')?.fetchEnabled === true
+    fetch: true
     searchTimeoutMs: 60000
