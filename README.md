@@ -2,7 +2,7 @@
 
 面向 Windows 原生 DeepSeek Harness（DSH）的社区 Agent Preset bundle。一次安装提供两个明确选项：**Adaptive Native Standard** 保留 Standard 上下文底座；**Adaptive Native Minimal** 的首个模型请求采用 Minimal 结构，仅暴露 `read + dev_tool_search`，随后持久提升、恢复 Windows 核心工具并按需发现重型能力。两者都使用自适应任务路由和紧凑的 Git Bash 执行器。
 
-当前版本：`0.3.0`
+当前版本：`0.3.1`
 
 GitHub 项目名为 **dsh-adaptive-native**。为避免已安装的 DSH bundle 被识别成第二个插件，内部兼容包名暂时保留为 `dsh-adaptive-native-standard`。
 
@@ -47,7 +47,7 @@ Minimal 的顶层会话严格经历一次 bootstrap；新建 subagent 默认直�
 ## 要求
 
 - Windows 10/11；
-- DeepSeek Harness `0.1.2-alpha.1`（锁定提交 `cd5ef814`）；
+- DeepSeek Harness `0.1.2-rc.1`（锁定提交 `76fda729`）；
 - Git for Windows；
 - DSH 已配置可用的模型 Provider。推荐在 DeepSeek V4 Pro 上使用高推理强度，但 Preset 本身不绑定 API 密钥或 Provider。
 
@@ -184,7 +184,7 @@ Standard 的源配置位于 `preset/agent.cordis.yml`。Minimal 配置由 `scrip
 
 一般不建议启用 `includeSessionJsonl`。它可能暴露本地对话工件位置，而且落盘内容可能滞后于当前轮次。
 
-DSH `0.1.2-alpha.1` 已在完整官方预设中开放 `web_fetch`，并提供带公网地址校验、DNS 固定和有界重定向的匿名 HTTP Provider。Adaptive Native Standard 与 Minimal 都沿用这一能力，不再从统一搜索插件读取跨项目开关；Minimal 的首个模型请求仍只有 `read + dev_tool_search`，提升后才可按需发现 Fetch。安装 DSH Unified Search 时，模型接口名称和预设可见性不变，只把正文后端替换为支持平台结构化读取、登录态与代理感知安全策略的 `unified-fetch`。
+DSH `0.1.2-rc.1` 已在完整官方预设中开放 `web_fetch`，并原生提供每模型推理强度、全局 HTTP(S) 代理路由、带公网地址校验与有界重定向的匿名 HTTP Provider。Adaptive Native 不再承担第三方推理强度补丁，也不从统一搜索插件读取 Fetch 开关；两个自包含预设仍显式挂载官方 `tool-web`，因为 Web App 会关闭宿主级工具挂载。Minimal 的首个模型请求仍只有 `read + dev_tool_search`，提升后才可按需发现 Fetch。安装 DSH Unified Search 时，模型接口名称和预设可见性不变，只把正文后端替换为支持平台结构化读取、登录态与透明 TUN 兼容策略的 `unified-fetch`。
 
 ## 验证
 

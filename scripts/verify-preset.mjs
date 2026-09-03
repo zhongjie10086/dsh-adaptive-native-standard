@@ -16,7 +16,7 @@ const bundleInstaller = readFileSync(join(root, 'index.mjs'), 'utf8')
 const lock = JSON.parse(readFileSync(join(root, 'upstream-lock.json'), 'utf8'))
 
 assert.equal(packageJson.name, 'dsh-adaptive-native-standard')
-assert.equal(packageJson.version, '0.3.0')
+assert.equal(packageJson.version, '0.3.1')
 assert.equal(packageJson.main, './index.mjs')
 assert.equal(packageJson.dsh?.bundle?.patch, './cordis.patch.yml')
 assert.ok(packageJson.files.includes('preset/'))
@@ -81,6 +81,6 @@ for (const relative of referenced) assert.ok(pluginFiles.includes(relative), `co
 for (const relative of minimalReferenced) {
   assert.ok(pluginFiles.includes(relative), `minimal composition references missing shared plugin: ${relative}`)
 }
-assert.equal(lock.deepseekHarness.commit, 'cd5ef8148158c3a752a658978873241fdf8e2bbc')
+assert.equal(lock.deepseekHarness.commit, '76fda729799fe9b3848dbe2c211d4b231032b81e')
 
 console.log(`preset verification: ok (Adaptive Native Standard + Minimal; ${pluginFiles.length} shared local plugins)`)

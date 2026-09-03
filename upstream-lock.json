@@ -1,8 +1,8 @@
 {
   "deepseekHarness": {
     "repository": "https://github.com/deepseek-ai/deepseek-harness",
-    "version": "0.1.2-alpha.1",
-    "commit": "cd5ef8148158c3a752a658978873241fdf8e2bbc"
+    "version": "0.1.2-rc.1",
+    "commit": "76fda729799fe9b3848dbe2c211d4b231032b81e"
   },
   "references": {
     "dshRoutingSuite": {

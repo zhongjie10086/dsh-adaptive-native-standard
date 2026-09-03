@@ -347,7 +347,7 @@
   config:
     allowParallelInProgress: true
 
-# DSH 0.1.2-alpha.1 makes Fetch a normal capability of its full presets and
+# DSH 0.1.2-rc.1 makes Fetch a normal capability of its full presets and
 # ships a public-network-pinned HTTP provider. Adaptive Native follows that
 # baseline directly. Unified Search may replace the backend with unified-fetch,
 # but it no longer owns this preset's model-facing tool visibility.
